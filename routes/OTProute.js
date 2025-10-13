@@ -1,6 +1,6 @@
 
 const express = require("express");
-const { sendOtp, verifyOtp } = require("../utils/otpService.js");
+const { sendOtp, verifyOtp } = require("../services/otpservice");
 const router = express.Router();
 
 // Send custom OTP

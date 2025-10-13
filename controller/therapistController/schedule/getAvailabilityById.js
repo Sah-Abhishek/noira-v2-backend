@@ -1,14 +1,17 @@
 const TherapistProfile = require("../../../models/TherapistProfiles.js");
 const TherapistAvailability = require("../../../models/AvailabilitySchema.js");
 const ServiceSchema = require("../../../models/ServiceSchema.js");
+const { default: mongoose } = require("mongoose");
 
 const getTherapistById = async (req, res) => {
   try {
     const { id } = req.params;
     const { serviceId, optionIndex } = req.body.cart;
 
+    const userid = new mongoose.Types.ObjectId(id);
+
     // ✅ Fetch therapist details
-    const therapist = await TherapistProfile.findById(id).populate(
+    const therapist = await TherapistProfile.findById(userid).populate(
       "userId",
       "name email avatar_url"
     );
