@@ -110,8 +110,7 @@ app.use('/api/otp', authmiddleware, require('./routes/OTProute'));
 app.use('/api/payout', require('./routes/payoutRoute'));
 
 app.get('/api/outcodes', require('./services/getoutcodes')); 
-app.get('/api/blog', require('./controller/blog/blog').getBlogs);
-app.get('/api/blog/:id', require('./controller/blog/blog').BlogID);
+app.use('/api/blog', require('./routes/Blogroute.js'));
 
 // ===============================
 // Start Server
