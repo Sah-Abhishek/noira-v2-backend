@@ -21,7 +21,12 @@ connectDB();
 // ===============================
 // Security: CORS Configuration
 // ===============================
-const allowedOrigins = ['https://noira.co.uk', 'https://www.noira.co.uk'];
+const allowedOrigins = [
+  'https://noira.co.uk',
+  'https://www.noira.co.uk',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -35,7 +40,7 @@ app.use(cors({
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-user-email'],
   credentials: true // Enable if you are using cookies or sessions
 }));
 
@@ -100,6 +105,8 @@ app.use('/api/auth/therapist/login', login_Therapist);
 app.use('/api/therapist', therapistRoutes);
 app.use('/api/services', require('./routes/servicesRoute.js'));
 app.get('/api/auth/verifytoken', tokenHandler);
+app.post('/api/coupon/validate', require('./controller/coupon/validateCoupon'));
+app.get('/api/banners/active', require('./controller/banner/getActiveBanners'));
 
 app.post('/api/payment/create-checkout-session', require("./controller/booking/create_booking.js"));
 app.post('/api/payment/cashbooking', require("./controller/booking/bycashbooking"));

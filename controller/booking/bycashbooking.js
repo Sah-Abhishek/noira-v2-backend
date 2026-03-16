@@ -3,6 +3,7 @@ const Service = require("../../models/ServiceSchema");
 const User = require("../../models/userSchema");
 const AvailabilitySchema = require("../../models/AvailabilitySchema");
 const TherapistProfile = require("../../models/TherapistProfiles");
+const Coupon = require("../../models/CouponSchema");
 const sendMail = require("../../utils/sendmail");
 const sendCustomSMS = require("../../utils/smsService");
 const bcrypt = require("bcrypt");
@@ -203,11 +204,21 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
     }
 
     if (couponCode) {
-      const formattedCode = couponCode.trim().toUpperCase();
-      if (formattedCode === "RELAX10") {
-        finalPrice = finalPrice * 0.9;
-      } else if (formattedCode === "RELAX100") {
-        finalPrice = 0;
+      const coupon = await Coupon.findOne({ code: couponCode.trim().toUpperCase() });
+      if (coupon && coupon.isActive
+        && (!coupon.expiryDate || new Date() <= coupon.expiryDate)
+        && (coupon.maxUses === 0 || coupon.usedCount < coupon.maxUses)
+        && finalPrice >= coupon.minOrderAmount
+      ) {
+        if (coupon.type === "percentage") {
+          finalPrice = Math.round((finalPrice * (1 - coupon.value / 100)) * 100) / 100;
+        } else if (coupon.type === "fixed") {
+          finalPrice = Math.max(0, finalPrice - coupon.value);
+        } else if (coupon.type === "free") {
+          finalPrice = 0;
+        }
+        coupon.usedCount += 1;
+        await coupon.save();
       }
     }
 

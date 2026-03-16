@@ -53,4 +53,16 @@ router.post('/booking/reviews/:id/reply', require('../controller/admin/ReviewRep
 //graph
 router.get('/graph/therapist', require('../controller/admin/graphPlot/therapistSchedule'))
 
+//banner management
+router.post('/banners', verifyadmin, require('../controller/admin/banner/createBanner'))
+router.get('/banners', verifyadmin, require('../controller/admin/banner/getBanners'))
+router.put('/banners/:id', verifyadmin, require('../controller/admin/banner/updateBanner'))
+router.delete('/banners/:id', verifyadmin, require('../controller/admin/banner/deleteBanner'))
+
+//coupon management
+router.post('/coupons', verifyadmin, require('../controller/admin/coupon/createCoupon'))
+router.get('/coupons', verifyadmin, require('../controller/admin/coupon/getCoupons'))
+router.put('/coupons/:id', verifyadmin, require('../controller/admin/coupon/updateCoupon'))
+router.delete('/coupons/:id', verifyadmin, require('../controller/admin/coupon/deleteCoupon'))
+
 module.exports = router;
