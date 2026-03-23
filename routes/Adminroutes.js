@@ -59,10 +59,14 @@ router.get('/banners', verifyadmin, require('../controller/admin/banner/getBanne
 router.put('/banners/:id', verifyadmin, require('../controller/admin/banner/updateBanner'))
 router.delete('/banners/:id', verifyadmin, require('../controller/admin/banner/deleteBanner'))
 
+//postcode analytics
+router.get('/postcode-analytics', verifyadmin, require('../controller/admin/postcodeAnalytics'))
+
 //coupon management
 router.post('/coupons', verifyadmin, require('../controller/admin/coupon/createCoupon'))
 router.get('/coupons', verifyadmin, require('../controller/admin/coupon/getCoupons'))
 router.put('/coupons/:id', verifyadmin, require('../controller/admin/coupon/updateCoupon'))
 router.delete('/coupons/:id', verifyadmin, require('../controller/admin/coupon/deleteCoupon'))
+router.get('/coupon-analytics', verifyadmin, require('../controller/admin/coupon/couponAnalytics'))
 
 module.exports = router;

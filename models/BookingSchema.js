@@ -20,6 +20,9 @@ const BookingSchema = new Schema({
   isReviewed: { type: Boolean, default: false },
   receipt_url: { type: String },
   paymentMode:String,
+  couponId: { type: Schema.Types.ObjectId, ref: "Coupon", default: null },
+  couponCode: { type: String, default: null },
+  discountAmount: { type: Number, default: 0 },
   review: { 
     type: {
       rating: { type: Number, min: 1, max: 5 },

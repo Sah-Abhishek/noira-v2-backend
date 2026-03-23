@@ -203,6 +203,10 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
       finalPrice += 15;
     }
 
+    let appliedCouponId = null;
+    let appliedCouponCode = null;
+    let discountAmount = 0;
+
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode.trim().toUpperCase() });
       if (coupon && coupon.isActive
@@ -210,6 +214,7 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
         && (coupon.maxUses === 0 || coupon.usedCount < coupon.maxUses)
         && finalPrice >= coupon.minOrderAmount
       ) {
+        const priceBeforeDiscount = finalPrice;
         if (coupon.type === "percentage") {
           finalPrice = Math.round((finalPrice * (1 - coupon.value / 100)) * 100) / 100;
         } else if (coupon.type === "fixed") {
@@ -217,6 +222,9 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
         } else if (coupon.type === "free") {
           finalPrice = 0;
         }
+        discountAmount = Math.round((priceBeforeDiscount - finalPrice) * 100) / 100;
+        appliedCouponId = coupon._id;
+        appliedCouponCode = coupon.code;
         coupon.usedCount += 1;
         await coupon.save();
       }
@@ -235,12 +243,14 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
       slotStart,
       slotEnd,
       status: "confirmed",
-      status: "confirmed",
       paymentStatus: "pending",
       paymentMode: "cash",
       price: { amount: finalPrice, currency: "gbp" },
       eliteHourSurcharge: surcharge,
       notes,
+      couponId: appliedCouponId,
+      couponCode: appliedCouponCode,
+      discountAmount,
     });
 
     // ✅ Block therapist availability

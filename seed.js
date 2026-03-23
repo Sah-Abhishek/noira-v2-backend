@@ -6,7 +6,7 @@
  *   node seed.js --clean   — drops existing seed data first, then seeds
  *
  * Default credentials:
- *   Admin:     admin@noira.co.uk     / Admin@123
+ *   Admin:     admin@noira.co.uk     / 12345678
  *   Users:     jane@example.com      / User@123
  *              rahul@example.com     / User@123
  *              emma@example.com      / User@123
@@ -31,7 +31,7 @@ const CLEAN = process.argv.includes("--clean");
 const adminData = {
   name: { first: "Noira", last: "Admin" },
   email: "admin@noira.co.uk",
-  password: "Admin@123",
+  password: "12345678",
   role: "admin",
   phone: "447700000001",
   gender: "other",

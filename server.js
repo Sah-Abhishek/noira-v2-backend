@@ -25,6 +25,7 @@ const allowedOrigins = [
   'https://noira.co.uk',
   'https://www.noira.co.uk',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3000',
 ];
 
@@ -32,7 +33,7 @@ app.use(cors({
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
@@ -97,7 +98,7 @@ app.get('/api/', (req, res) => res.send("Hello from server"));
 
 app.use('/api/auth', require('./routes/google.js'));
 app.use('/api/auth/user', userAuth);
-app.use('/api/user', require('./routes/userRoutes.js'));  
+app.use('/api/user', require('./routes/userRoutes.js'));
 app.use('/api/admin', Adminroutes);
 app.use('/api/verifyotp', require('./routes/otproutes.js'));
 app.post('/api/auth/admin/login', login_User);
@@ -116,7 +117,8 @@ app.use('/api/auth', require('./routes/forgotpasswordRoute/forgotpass.js'));
 app.use('/api/otp', authmiddleware, require('./routes/OTProute'));
 app.use('/api/payout', require('./routes/payoutRoute'));
 
-app.get('/api/outcodes', require('./services/getoutcodes')); 
+app.get('/api/outcodes', require('./services/getoutcodes'));
+app.post('/api/postcode-search', require('./controller/postcode/logPostcodeSearch'));
 app.use('/api/blog', require('./routes/Blogroute.js'));
 
 // ===============================
@@ -124,6 +126,6 @@ app.use('/api/blog', require('./routes/Blogroute.js'));
 // ===============================
 // Modified: Removed '0.0.0.0' to prevent listening on all interfaces.
 // It will now default to localhost or the system default.
-app.listen(PORT,'0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${PORT}`);
 });

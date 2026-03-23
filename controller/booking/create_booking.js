@@ -195,6 +195,10 @@ let checkaddress = false;
       finalPrice += 15;
     }
 
+    let appliedCouponId = null;
+    let appliedCouponCode = null;
+    let discountAmount = 0;
+
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode.trim().toUpperCase() });
       if (coupon && coupon.isActive
@@ -202,6 +206,7 @@ let checkaddress = false;
         && (coupon.maxUses === 0 || coupon.usedCount < coupon.maxUses)
         && finalPrice >= coupon.minOrderAmount
       ) {
+        const priceBeforeDiscount = finalPrice;
         if (coupon.type === "percentage") {
           finalPrice = Math.round((finalPrice * (1 - coupon.value / 100)) * 100) / 100;
         } else if (coupon.type === "fixed") {
@@ -209,6 +214,9 @@ let checkaddress = false;
         } else if (coupon.type === "free") {
           finalPrice = 0;
         }
+        discountAmount = Math.round((priceBeforeDiscount - finalPrice) * 100) / 100;
+        appliedCouponId = coupon._id;
+        appliedCouponCode = coupon.code;
         coupon.usedCount += 1;
         await coupon.save();
       }
@@ -232,6 +240,9 @@ let checkaddress = false;
       price: { amount: finalPrice, currency: "gbp" },
       eliteHourSurcharge: surcharge,
       notes,
+      couponId: appliedCouponId,
+      couponCode: appliedCouponCode,
+      discountAmount,
     });
 
     // ✅ Update therapist availability

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --forceExit --detectOpenHandles",
     "start": "nodemon server.js",
     "seed": "node seed.js",
     "seed:clean": "node seed.js --clean"
@@ -48,5 +48,11 @@
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.9.0",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
+  },
+  "jest": {
+    "testMatch": ["<rootDir>/tests/**/*.test.js"]
   }
 }
