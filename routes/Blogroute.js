@@ -146,9 +146,10 @@ router.post('/blog-write', async (req, res) => {
 // GET - Get all blogs
 router.get('/', async (req, res) => {
   try {
-    const { category, limit = 10, page = 1, sort = '-createdAt' } = req.query;
-    
-    const query = { published: true };
+    const { category, limit = 10, page = 1, sort = '-createdAt', all } = req.query;
+
+    // When `all=true` is passed (admin content manager), include unpublished blogs.
+    const query = all === 'true' ? {} : { published: true };
     if (category) {
       query.category = category;
     }
@@ -393,6 +394,43 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete blog',
+      error: error.message
+    });
+  }
+});
+
+// PATCH - Toggle (or set) blog publish state — used by admin to list/delist a blog
+router.patch('/:id/publish', async (req, res) => {
+  try {
+    const blog = await Blog.findById(req.params.id);
+
+    if (!blog) {
+      return res.status(404).json({
+        success: false,
+        message: 'Blog not found'
+      });
+    }
+
+    // Allow explicit set via body { published: true|false }, otherwise toggle.
+    if (typeof req.body?.published === 'boolean') {
+      blog.published = req.body.published;
+    } else {
+      blog.published = !blog.published;
+    }
+
+    await blog.save();
+
+    res.json({
+      success: true,
+      message: blog.published ? 'Blog listed (published)' : 'Blog delisted (unpublished)',
+      published: blog.published,
+      blog
+    });
+  } catch (error) {
+    console.error('Error toggling blog publish state:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update blog publish state',
       error: error.message
     });
   }
