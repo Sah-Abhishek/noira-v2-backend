@@ -120,6 +120,8 @@ app.use('/api/payout', require('./routes/payoutRoute'));
 app.get('/api/outcodes', require('./services/getoutcodes'));
 app.post('/api/postcode-search', require('./controller/postcode/logPostcodeSearch'));
 app.use('/api/blog', require('./routes/Blogroute.js'));
+app.post('/api/partnership/submit', require('./controller/partnership/createEnquiry'));
+app.post('/api/airbnb-hosts/submit', require('./controller/airbnb/createApplication'));
 
 // ===============================
 // Start Server

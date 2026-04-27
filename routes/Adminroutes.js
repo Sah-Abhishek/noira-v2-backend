@@ -69,4 +69,14 @@ router.put('/coupons/:id', verifyadmin, require('../controller/admin/coupon/upda
 router.delete('/coupons/:id', verifyadmin, require('../controller/admin/coupon/deleteCoupon'))
 router.get('/coupon-analytics', verifyadmin, require('../controller/admin/coupon/couponAnalytics'))
 
+//partnership enquiries
+router.get('/partnerships', verifyadmin, require('../controller/admin/partnership/getEnquiries'))
+router.patch('/partnerships/:id', verifyadmin, require('../controller/admin/partnership/updateEnquiry'))
+router.delete('/partnerships/:id', verifyadmin, require('../controller/admin/partnership/deleteEnquiry'))
+
+//airbnb host applications
+router.get('/airbnb-hosts', verifyadmin, require('../controller/admin/airbnb/getApplications'))
+router.patch('/airbnb-hosts/:id', verifyadmin, require('../controller/admin/airbnb/updateApplication'))
+router.delete('/airbnb-hosts/:id', verifyadmin, require('../controller/admin/airbnb/deleteApplication'))
+
 module.exports = router;
