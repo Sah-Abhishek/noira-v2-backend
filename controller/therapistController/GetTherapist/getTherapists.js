@@ -34,6 +34,17 @@ const getTherapists = async (req, res) => {
     if (areaCode !== outwardCode && areaCode.length >= 2) {
       postcodeCandidates.push(areaCode);
     }
+    // Also accept therapists registered under the bare area letters
+    // (e.g. "HA" matching "HA8 5AB"). Restrict to >=2 letters so single-letter
+    // prefixes like "W" or "N" don't over-match.
+    const letterPrefix = outwardCode.match(/^[A-Z]+/)?.[0];
+    if (
+      letterPrefix &&
+      letterPrefix.length >= 2 &&
+      !postcodeCandidates.includes(letterPrefix)
+    ) {
+      postcodeCandidates.push(letterPrefix);
+    }
     console.log("[TherapistFilter] postcode:", { outwardCode, postcodeCandidates });
 
     // Parse date & time (your code already handles this)
