@@ -27,7 +27,14 @@ const getTherapists = async (req, res) => {
 
   const normalizedPostalCode = String(postalCode).trim().toUpperCase();
     const outwardCode = normalizedPostalCode.split(" ")[0]; // Only first part (outcode)
-    // console.log("Outward code to match:", outwardCode);23
+    // Build candidates so therapists registered at area level ("W1")
+    // still match users whose postcode has a more specific outcode ("W1A").
+    const postcodeCandidates = [outwardCode];
+    const areaCode = outwardCode.replace(/[A-Z]$/, "");
+    if (areaCode !== outwardCode && areaCode.length >= 2) {
+      postcodeCandidates.push(areaCode);
+    }
+    console.log("[TherapistFilter] postcode:", { outwardCode, postcodeCandidates });
 
     // Parse date & time (your code already handles this)
     const [year, month, day] = date.split("-");
@@ -63,13 +70,21 @@ const getTherapists = async (req, res) => {
     );
 
     // ✅ Step 1: Find therapists offering this service **and matching postal code**
+    // Empty `specializations` is treated as "no service restriction" so newly
+    // created therapists (who haven't picked specific services yet) can still
+    // be booked. The schema marks each specialization as required: false.
     const therapists = await TherapistProfiles.find({
-      specializations: serviceID,
+      $or: [
+        { specializations: serviceID },
+        { specializations: { $size: 0 } },
+      ],
       active: true,
-      servicesInPostalCodes: outwardCode, // 🔑 Filter by postal code match
+      servicesInPostalCodes: { $in: postcodeCandidates }, // 🔑 prefix-aware match
     })
       .populate("userId", "email avatar_url")
       .populate("specializations", "name");
+
+    console.log("[TherapistFilter] stage1 matched therapists:", therapists.length, therapists.map(t => ({ id: t._id.toString(), specs: t.specializations.length })));
 
     if (!therapists.length) {
       return res.status(200).json({ therapists: [] });
@@ -80,12 +95,14 @@ const getTherapists = async (req, res) => {
     const dayStart = new Date(slotStart);
     dayStart.setUTCHours(0, 0, 0, 0);
     const dayEnd = new Date(slotStart);
+    dayEnd.setUTCHours(23, 59, 59, 999);
 
     // ✅ Step 2: Get therapist availabilities for that day
     const availabilities = await AvailabilitySchema.find({
       therapistId: { $in: therapistIds },
       date: { $gte: dayStart, $lte: dayEnd },
     });
+    console.log("[TherapistFilter] availability rows for that day:", availabilities.length);
 
     // ✅ Step 3: Filter therapists based on available blocks
     const availableTherapistIds = availabilities
@@ -133,6 +150,13 @@ const getTherapists = async (req, res) => {
         availableTherapistIds.includes(t._id.toString()) &&
         !bookedTherapistIds.includes(t._id.toString())
     );
+
+    console.log("[TherapistFilter] result:", {
+      stage1: therapists.length,
+      withBlock: availableTherapistIds.length,
+      booked: bookedTherapistIds.length,
+      final: finalTherapists.length,
+    });
 
     return res.json({
       therapists: finalTherapists,

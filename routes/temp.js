@@ -2,7 +2,12 @@
 const express = require("express");
 const router = express.Router();
 const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  Stripe API key not configured. Temporary routes will not function properly.');
+}
 
 // POST /create-checkout-session
 router.post("/create-checkout-session", async (req, res) => {

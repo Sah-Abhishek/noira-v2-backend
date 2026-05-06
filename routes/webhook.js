@@ -1,11 +1,20 @@
 const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  Stripe API key not configured. Stripe webhook functionality will be unavailable.');
+}
 const sendSMS = require("../utils/twilio");
 const BookingSchema = require("../models/BookingSchema.js");
 const sendMail = require("../utils/sendmail.js");
 const TherapistProfile = require("../models/TherapistProfiles.js");
 const Payment = require("../models/PaymentSchema.js");
 const webhook = async (req, res) => {
+  if (!stripe) {
+    console.error('⚠️ Stripe not configured. Webhook cannot be processed.');
+    return res.status(503).json({ error: 'Stripe is not configured' });
+  }
   const sig = req.headers["stripe-signature"];
   let event;
 

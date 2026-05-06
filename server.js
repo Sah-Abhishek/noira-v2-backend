@@ -50,7 +50,7 @@ app.use(cors({
     return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-user-email'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-user-email', 'role'],
   credentials: true // Enable if you are using cookies or sessions
 }));
 

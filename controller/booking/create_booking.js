@@ -7,7 +7,16 @@ const Stripe = require("stripe");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const Payment = require("../../models/PaymentSchema");
+<<<<<<< HEAD
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+=======
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  Stripe API key not configured. Stripe functionality will be unavailable.');
+}
+>>>>>>> d31d3fd (changes done by manas & aniket regarding postcode change, ui)
 const sendMail = require('../../utils/sendmail')
 // ✅ Helper: split availability blocks after a booking
 function blockBookedSlot(blocks, slotStart, slotEnd) {

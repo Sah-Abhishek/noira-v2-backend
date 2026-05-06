@@ -4,7 +4,12 @@ const router = express.Router();
 const Stripe = require("stripe");
 const Booking = require("../models/Booking");
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); // Secret Key from Stripe Dashboard
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️  Stripe API key not configured. Payment functionality will be unavailable.');
+}
 
 // Create PaymentIntent
 router.post("/create-intent", async (req, res) => {

@@ -13,9 +13,17 @@ const tenantId = process.env.TENANT_ID;
 const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.CLIENT_SECRET;
 
-const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+let credential = null;
+if (tenantId && clientId && clientSecret) {
+  credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+} else {
+  console.warn('⚠️  Azure email credentials not configured. Email functionality will be unavailable.');
+}
 //microsoft
 async function getGraphClient() {
+  if (!credential) {
+    throw new Error('Azure email credentials not configured. Email functionality is unavailable.');
+  }
   const token = await credential.getToken("https://graph.microsoft.com/.default");
 
   return Client.init({
