@@ -37,6 +37,9 @@ router.get('/revenue', verifyadmin ,   require('../controller/admin/revenue.js')
 router.get('/bookings/therapist/:therapistId', verifyadmin ,   require('../controller/admin/bookingbytherapist.js'));
 router.put('/booking/cancel/:id', verifyadmin, require('../controller/booking/update_booking.js').cancelBooking)
 router.put('/booking/reschedule/:id', verifyadmin, require('../controller/booking/update_booking.js').rescheduleBooking)
+router.post('/booking/manual', verifyadmin, require('../controller/admin/manualBooking/createManualBooking.js'))
+router.post('/booking/:id/resend-link', verifyadmin, require('../controller/admin/manualBooking/resendPaymentLink.js'))
+router.get('/customers/search', verifyadmin, require('../controller/admin/manualBooking/searchCustomer.js'))
 //users management
 router.get('/users', verifyadmin , require('../controller/admin/usermanagement/users.js'));
 

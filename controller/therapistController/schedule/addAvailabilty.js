@@ -41,7 +41,8 @@ const addAvailability = async (req, res) => {
       const start = toMinutes(block.startTime);
       const end = toMinutes(block.endTime);
 
-      if (end <= start) {
+      // Allow end up to 24*60 = 1440 (24:00 = end of day, covers 23:30 slot).
+      if (end <= start || end > 1440) {
         skippedInvalid.push(block);
         continue;
       }

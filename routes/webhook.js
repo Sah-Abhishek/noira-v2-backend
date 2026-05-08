@@ -6,7 +6,9 @@ if (process.env.STRIPE_SECRET_KEY) {
   console.warn('⚠️  Stripe API key not configured. Stripe webhook functionality will be unavailable.');
 }
 const sendSMS = require("../utils/twilio");
+const sendCustomSMS = require("../utils/smsService");
 const BookingSchema = require("../models/BookingSchema.js");
+const AvailabilitySchema = require("../models/AvailabilitySchema.js");
 const sendMail = require("../utils/sendmail.js");
 const TherapistProfile = require("../models/TherapistProfiles.js");
 const Payment = require("../models/PaymentSchema.js");
@@ -222,47 +224,68 @@ console.log("sms sent to",booking.clientId.phone )
 
     case "checkout.session.expired": {
       const session = event.data.object;
-      if (session.metadata?.bookingId) {
-        const bookingId = session.metadata.bookingId;
+      const bookingId = session.metadata?.bookingId;
+      if (!bookingId) break;
 
-        // Step 1: Find the booking to get its details before deletion
-        const bookingToDelete = await BookingSchema.findById(bookingId);
+      const expiredBooking = await BookingSchema.findById(bookingId);
+      if (!expiredBooking) break;
 
-        if (bookingToDelete) {
-          // Step 2: Delete the booking record from the database
-          await BookingSchema.findByIdAndDelete(bookingId);
+      // Already paid via another path — nothing to do.
+      if (
+        expiredBooking.status === "confirmed" ||
+        expiredBooking.paymentStatus === "paid"
+      ) {
+        break;
+      }
 
-          // Step 3: Find the availability document for the booking date
-          const availabilityDoc = await TherapistAvailability.findOne({
-            therapistId: bookingToDelete.therapistId,
-            date: new Date(bookingToDelete.slotStart.setUTCHours(0, 0, 0, 0)),
-          });
+      // Mark payment record failed regardless of source.
+      await Payment.findOneAndUpdate(
+        { bookingId },
+        { paymentStatus: "failed" },
+        { new: true }
+      );
 
-          if (availabilityDoc) {
-            // Step 4: Find the specific slot and mark it as available
-            const blockIndex = availabilityDoc.blocks.findIndex(
-              (block) =>
-                new Date(block.startTime).getTime() ===
-                  bookingToDelete.slotStart.getTime() &&
-                new Date(block.endTime).getTime() ===
-                  bookingToDelete.slotEnd.getTime()
-            );
-
-            if (blockIndex !== -1) {
-              availabilityDoc.blocks[blockIndex].isAvailable = true;
-              await availabilityDoc.save();
-              // console.log(`✅ Slot for booking ${bookingId} has been freed.`);
-            }
-          }
-
-        }
-
-        // Step 5: Update the payment record to 'failed'
-        await Payment.findOneAndUpdate(
-          { bookingId: bookingId },
-          { paymentStatus: "failed" },
-          { new: true }
+      if (expiredBooking.source === "admin-manual") {
+        // Admin can resend a fresh link — keep the booking, just record that
+        // this session is no longer usable. The slot stays blocked because
+        // the customer is still expected to pay.
+        expiredBooking.paymentLinkSessionId = null;
+        await expiredBooking.save();
+        console.log(
+          `Stripe session expired for admin-manual booking ${bookingId}; booking kept as pending.`
         );
+        break;
+      }
+
+      // Original online flow: delete the pending booking and free the slot.
+      const dayStart = new Date(expiredBooking.slotStart);
+      dayStart.setUTCHours(0, 0, 0, 0);
+      await BookingSchema.findByIdAndDelete(bookingId);
+
+      const availabilityDoc = await AvailabilitySchema.findOne({
+        therapistId: expiredBooking.therapistId,
+        date: dayStart,
+      });
+      if (availabilityDoc) {
+        // Re-merge: mark any block that exactly matches the booking slot
+        // back to available. Adjacent available blocks are NOT merged here
+        // — a subsequent overlapping booking will still split correctly.
+        const startMin =
+          expiredBooking.slotStart.getUTCHours() * 60 +
+          expiredBooking.slotStart.getUTCMinutes();
+        const endMin =
+          expiredBooking.slotEnd.getUTCHours() * 60 +
+          expiredBooking.slotEnd.getUTCMinutes();
+        const fmt = (m) =>
+          `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        const startStr = fmt(startMin);
+        const endStr = fmt(endMin);
+        availabilityDoc.blocks = availabilityDoc.blocks.map((b) =>
+          b.startTime === startStr && b.endTime === endStr
+            ? { ...b.toObject?.() ?? b, isAvailable: true }
+            : b
+        );
+        await availabilityDoc.save();
       }
       break;
     }

@@ -28,7 +28,11 @@ function blockBookedSlot(blocks, slotStart, slotEnd) {
     const blockEnd = eh * 60 + em;
     const bookingStart =
       slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
-    const bookingEnd = slotEnd.getUTCHours() * 60 + slotEnd.getUTCMinutes();
+    // Use duration so a slot ending at 00:00 next day (e.g. 23:30 booking)
+    // is correctly represented as 1440, not 0 — otherwise the split math
+    // silently fails and the slot stays marked available.
+    const durationMin = Math.round((slotEnd - slotStart) / 60000);
+    const bookingEnd = bookingStart + durationMin;
 
     if (bookingEnd <= blockStart || bookingStart >= blockEnd) {
       newBlocks.push(block);
@@ -253,19 +257,43 @@ await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
       discountAmount,
     });
 
-    // ✅ Block therapist availability
-    const availabilityDoc = await AvailabilitySchema.findOne({
+    // ✅ Block therapist availability — handle overnight bookings by
+    // splitting today's block (slotStart → end-of-today) AND tomorrow's
+    // block (start-of-tomorrow → slotEnd) when the booking crosses midnight.
+    const endOfToday = new Date(newdate);
+    endOfToday.setUTCHours(24, 0, 0, 0); // = next day 00:00 UTC
+    const isOvernightBooking = slotEnd > endOfToday;
+
+    const todayDoc = await AvailabilitySchema.findOne({
       therapistId,
       date: newdate,
     });
-
-    if (availabilityDoc) {
-      availabilityDoc.blocks = blockBookedSlot(
-        availabilityDoc.blocks,
+    if (todayDoc) {
+      const todayPortionEnd = isOvernightBooking ? endOfToday : slotEnd;
+      todayDoc.blocks = blockBookedSlot(
+        todayDoc.blocks,
         slotStart,
-        slotEnd
+        todayPortionEnd
       );
-      await availabilityDoc.save();
+      await todayDoc.save();
+    }
+
+    if (isOvernightBooking) {
+      const tomorrowStart = endOfToday; // tomorrow 00:00
+      const tomorrowDay = new Date(tomorrowStart);
+      tomorrowDay.setUTCHours(0, 0, 0, 0);
+      const tomorrowDoc = await AvailabilitySchema.findOne({
+        therapistId,
+        date: tomorrowDay,
+      });
+      if (tomorrowDoc) {
+        tomorrowDoc.blocks = blockBookedSlot(
+          tomorrowDoc.blocks,
+          tomorrowStart,
+          slotEnd
+        );
+        await tomorrowDoc.save();
+      }
     }
 
     // ✅ Populate booking with all details

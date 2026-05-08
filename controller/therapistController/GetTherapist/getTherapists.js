@@ -103,52 +103,75 @@ const getTherapists = async (req, res) => {
 
     const therapistIds = therapists.map((t) => t._id);
 
+    // Days the slot touches. If the booking ends past midnight (e.g. 23:00 +
+    // 150min ends at 01:30 next day) we need both days' availability docs.
     const dayStart = new Date(slotStart);
     dayStart.setUTCHours(0, 0, 0, 0);
-    const dayEnd = new Date(slotStart);
-    dayEnd.setUTCHours(23, 59, 59, 999);
+    const slotEndDay = new Date(slotEnd.getTime() - 1); // -1ms so an end at exactly 00:00 belongs to the prior day
+    slotEndDay.setUTCHours(0, 0, 0, 0);
+    const isOvernight = slotEndDay.getTime() > dayStart.getTime();
+    const relevantDays = isOvernight ? [dayStart, slotEndDay] : [dayStart];
 
-    // ✅ Step 2: Get therapist availabilities for that day
+    // ✅ Step 2: Get therapist availabilities for relevant day(s)
     const availabilities = await AvailabilitySchema.find({
       therapistId: { $in: therapistIds },
-      date: { $gte: dayStart, $lte: dayEnd },
+      date: { $in: relevantDays },
     });
-    console.log("[TherapistFilter] availability rows for that day:", availabilities.length);
+    console.log(
+      "[TherapistFilter] availability rows:",
+      availabilities.length,
+      "isOvernight:",
+      isOvernight
+    );
 
-    // ✅ Step 3: Filter therapists based on available blocks
-    const availableTherapistIds = availabilities
-      .filter((av) =>
-        av.blocks.some((block) => {
-          if (!block.isAvailable) return false;
+    // Group by therapist so we can merge intervals across days.
+    const blocksByTherapist = new Map();
+    for (const av of availabilities) {
+      const key = av.therapistId.toString();
+      if (!blocksByTherapist.has(key)) blocksByTherapist.set(key, []);
+      for (const block of av.blocks) {
+        if (!block.isAvailable) continue;
+        const [bh, bm] = block.startTime.split(":").map(Number);
+        const [eh, em] = block.endTime.split(":").map(Number);
+        const start = new Date(av.date);
+        start.setUTCHours(bh, bm, 0, 0);
+        const end = new Date(av.date);
+        end.setUTCHours(eh, em, 0, 0); // setUTCHours(24,...) rolls into next day
+        blocksByTherapist.get(key).push({ start, end });
+      }
+    }
 
-          const [bh, bm] = block.startTime.split(":").map(Number);
-          const [eh, em] = block.endTime.split(":").map(Number);
-
-          const blockStart = new Date(av.date);
-          blockStart.setUTCHours(bh, bm, 0, 0);
-
-          const blockEnd = new Date(av.date);
-          blockEnd.setUTCHours(eh, em, 0, 0);
-
-          return slotStart >= blockStart && slotEnd <= blockEnd;
-        })
-      )
-      .map((av) => av.therapistId.toString());
+    // ✅ Step 3: For each therapist, merge contiguous available intervals and
+    // check whether any merged interval fully contains the slot.
+    const availableTherapistIds = [];
+    for (const [tid, intervals] of blocksByTherapist.entries()) {
+      intervals.sort((a, b) => a.start - b.start);
+      const merged = [];
+      for (const iv of intervals) {
+        const last = merged[merged.length - 1];
+        if (last && iv.start.getTime() <= last.end.getTime()) {
+          if (iv.end.getTime() > last.end.getTime()) last.end = iv.end;
+        } else {
+          merged.push({ start: iv.start, end: iv.end });
+        }
+      }
+      const fits = merged.some(
+        (m) => slotStart >= m.start && slotEnd <= m.end
+      );
+      if (fits) availableTherapistIds.push(tid);
+    }
 
     if (!availableTherapistIds.length) {
       return res.json({ therapists: [] });
     }
 
-    // ✅ Step 4: Exclude therapists with conflicting bookings
+    // ✅ Step 4: Exclude therapists with conflicting bookings on EITHER day.
     const conflictingBookings = await BookingSchema.find({
       therapistId: { $in: availableTherapistIds },
-      date: new Date(`${year}-${month}-${day}T00:00:00.000Z`),
-      $or: [
-        {
-          slotStart: { $lt: slotEnd },
-          slotEnd: { $gt: slotStart },
-        },
-      ],
+      date: { $in: relevantDays },
+      status: { $in: ["confirmed", "pending"] },
+      slotStart: { $lt: slotEnd },
+      slotEnd: { $gt: slotStart },
     });
 
     const bookedTherapistIds = conflictingBookings.map((b) =>
