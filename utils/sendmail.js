@@ -60,8 +60,12 @@ const sendMail = async (to, subject, html, type) => {
     await client.api(`/users/${USE_EMAIL}/sendMail`).post({ message });
  console.log("mail sent to",  to)
   } catch (err) {
+    // Bubble the rejection so callers' .catch() and Promise.allSettled()
+    // see the real Microsoft Graph error (e.g. expired client secret) —
+    // this used to reference a non-existent `res`, which masked every
+    // failure with a confusing "res is not defined" ReferenceError.
     console.error("❌ Failed to send email:", err.message);
-    return res.status(500).json({message:"mail sent error"})
+    throw err;
   }
 };
 

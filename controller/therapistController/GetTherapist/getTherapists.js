@@ -45,7 +45,7 @@ const getTherapists = async (req, res) => {
     ) {
       postcodeCandidates.push(letterPrefix);
     }
-    console.log("[TherapistFilter] postcode:", { outwardCode, postcodeCandidates });
+    // console.log("[TherapistFilter] postcode:", { outwardCode, postcodeCandidates });
 
     // Parse date & time (your code already handles this)
     const [year, month, day] = date.split("-");
@@ -95,7 +95,7 @@ const getTherapists = async (req, res) => {
       .populate("userId", "email avatar_url")
       .populate("specializations", "name");
 
-    console.log("[TherapistFilter] stage1 matched therapists:", therapists.length, therapists.map(t => ({ id: t._id.toString(), specs: t.specializations.length })));
+    // console.log("[TherapistFilter] stage1 matched therapists:", therapists.length, therapists.map(t => ({ id: t._id.toString(), specs: t.specializations.length })));
 
     if (!therapists.length) {
       return res.status(200).json({ therapists: [] });
@@ -117,12 +117,12 @@ const getTherapists = async (req, res) => {
       therapistId: { $in: therapistIds },
       date: { $in: relevantDays },
     });
-    console.log(
-      "[TherapistFilter] availability rows:",
-      availabilities.length,
-      "isOvernight:",
-      isOvernight
-    );
+    // console.log(
+    //   "[TherapistFilter] availability rows:",
+    //   availabilities.length,
+    //   "isOvernight:",
+    //   isOvernight
+    // );
 
     // Group by therapist so we can merge intervals across days.
     const blocksByTherapist = new Map();
@@ -185,12 +185,12 @@ const getTherapists = async (req, res) => {
         !bookedTherapistIds.includes(t._id.toString())
     );
 
-    console.log("[TherapistFilter] result:", {
-      stage1: therapists.length,
-      withBlock: availableTherapistIds.length,
-      booked: bookedTherapistIds.length,
-      final: finalTherapists.length,
-    });
+    // console.log("[TherapistFilter] result:", {
+    //   stage1: therapists.length,
+    //   withBlock: availableTherapistIds.length,
+    //   booked: bookedTherapistIds.length,
+    //   final: finalTherapists.length,
+    // });
 
     return res.json({
       therapists: finalTherapists,

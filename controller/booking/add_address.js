@@ -36,12 +36,21 @@ const updateUserAddress = async (req, res) => {
       });
     }
 
-    // 🔹 Step 2: Check against serviceable areas
-    const outwardCode = normalizedPostalCode.split(" ")[0]; // e.g., EC1A
+    // 🔹 Step 2: Check against serviceable areas.
+    // Location.postalcodes may store either the full outward code ("EC1A",
+    // "SW1A") or just the letter-area prefix ("HA", "IG"), so check both
+    // forms — otherwise typing "HA0 1AB" fails even though "HA" is listed.
+    const outwardCode = normalizedPostalCode.split(" ")[0]; // e.g., EC1A, HA0
+    const areaCode = outwardCode.replace(/\d.*$/, "");      // EC1A→EC, HA0→HA
+    const candidates = [outwardCode];
+    if (areaCode && areaCode !== outwardCode) candidates.push(areaCode);
+
     const locationExists = await Location.findOne({});
-    
- 
-    if (!locationExists.postalcodes.includes(outwardCode)) {
+    if (!locationExists) {
+      return res.status(500).json({ message: "Service location data not configured." });
+    }
+    const isServiceable = candidates.some((c) => locationExists.postalcodes.includes(c));
+    if (!isServiceable) {
       return res.status(400).json({
         message: `Services are not offered in postal code area: ${normalizedPostalCode}`,
       });
@@ -53,7 +62,7 @@ const updateUserAddress = async (req, res) => {
       Building_No: address.Building_No,
       Street: address.Street,
       Locality: address.Locality || "",
-      PostTown: address.PostTown || london,
+      PostTown: address.PostTown || "London",
       PostalCode: normalizedPostalCode,
     };
 

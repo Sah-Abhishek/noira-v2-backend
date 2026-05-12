@@ -163,7 +163,11 @@ console.log(name)
   <p>With discretion and care,<br>The Noira Team</p>
 `;
 
-await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
+try {
+  await sendMail(user.email, "Login password - Noira", clientpasswordmail, "otp");
+} catch (mailErr) {
+  console.error("[cashBooking] welcome mail failed:", mailErr?.message || mailErr);
+}
 
       // (Optional) send email with credentials here
     }
@@ -390,17 +394,25 @@ const adminMail = `
 `;
 
 
-    await sendMail(bookingnew.clientId.email, "Booking Confirmation - Noira", clientMail, "booking");
-    await sendMail(therapist.userId.email, "New Booking Alert - Noira", therapistMail, "booking");
-    await sendMail("bookings@noira.co.uk", "New Booking Notification", adminMail, "booking");
-
     const message = `Your NOIRA massage is confirmed for ${bookingnew.date.toLocaleDateString(
       "en-GB")}, ${startUTC} ${durationMinutes}mins. Therapist - ${bookingnew.therapistId.title}.`;
 
-    await sendCustomSMS(bookingnew.clientId.phone, message);
-    await sendCustomSMS(therapist.userId.phone, `NEW booking: ${message}`);
-
-    
+    // Notifications must not fail the booking response. The DB write has
+    // already succeeded by this point; mail/SMS providers (Microsoft Graph,
+    // MSG91) can be down or rate-limited without that meaning the booking
+    // didn't happen. Fire them in parallel via allSettled and log failures.
+    const notifyResults = await Promise.allSettled([
+      sendMail(bookingnew.clientId.email, "Booking Confirmation - Noira", clientMail, "booking"),
+      sendMail(therapist.userId.email, "New Booking Alert - Noira", therapistMail, "booking"),
+      sendMail("bookings@noira.co.uk", "New Booking Notification", adminMail, "booking"),
+      sendCustomSMS(bookingnew.clientId.phone, message),
+      sendCustomSMS(therapist.userId.phone, `NEW booking: ${message}`),
+    ]);
+    notifyResults.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`[cashBooking] notification ${i} failed:`, r.reason?.message || r.reason);
+      }
+    });
 
     return res.status(200).json({ message: "Booking confirmed" });
 

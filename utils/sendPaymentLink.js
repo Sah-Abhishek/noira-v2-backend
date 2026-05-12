@@ -1,6 +1,20 @@
 const sendCustomSMS = require("./smsService");
 const sendMail = require("./sendmail");
 
+// Normalize a phone string to E.164 (UK-default). Customers / admins enter
+// numbers in mixed formats — "07869...", "447869...", "+44 7869 ...",
+// "00447869..." — and Twilio rejects anything that isn't strict E.164.
+function toE164UK(raw) {
+  if (!raw) return "";
+  // strip everything except digits and a leading +
+  let s = String(raw).trim().replace(/[^\d+]/g, "");
+  if (s.startsWith("+")) return "+" + s.slice(1).replace(/\D/g, "");
+  if (s.startsWith("00")) return "+" + s.slice(2);
+  if (s.startsWith("0")) return "+44" + s.slice(1);   // UK domestic
+  if (s.startsWith("44")) return "+" + s;
+  return "+" + s;
+}
+
 /**
  * Send a Stripe Checkout link to a customer via the requested channels.
  *
@@ -67,10 +81,7 @@ async function sendPaymentLink({
           process.env.TWILIO_ACCOUNT_SID,
           process.env.TWILIO_AUTH_TOKEN
         );
-        // customerPhone is stored without leading "+" (e.g. 447...).
-        const toNumber = customerPhone.startsWith("+")
-          ? customerPhone
-          : `+${customerPhone}`;
+        const toNumber = toE164UK(customerPhone);
         await twilio.messages.create({
           from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
           to: `whatsapp:${toNumber}`,
@@ -78,10 +89,24 @@ async function sendPaymentLink({
         });
         result.sent.push("whatsapp");
       } catch (err) {
-        result.failed.push({
-          channel: "whatsapp",
-          error: err?.message || String(err),
-        });
+        // Twilio rejects when the From number isn't a registered/approved
+        // WhatsApp sender — that's an account-setup state, not a per-message
+        // failure. Treat those as "skipped" so the UI stops flagging it in
+        // red until the Twilio WhatsApp Business sender is approved.
+        const msg = err?.message || String(err);
+        const code = err?.code; // Twilio sets numeric codes like 63007
+        const isChannelMisconfig =
+          code === 63007 ||
+          code === 63016 ||
+          /could not find a Channel|not a WhatsApp|channel sender|not opted in/i.test(msg);
+        if (isChannelMisconfig) {
+          result.skipped.push({
+            channel: "whatsapp",
+            reason: "WhatsApp sender not approved on Twilio yet",
+          });
+        } else {
+          result.failed.push({ channel: "whatsapp", error: msg });
+        }
       }
     }
   }
