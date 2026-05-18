@@ -9,17 +9,34 @@ const getAllTherapists = async (req, res) => {
     const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
     const skip = (page - 1) * limit;
 
-    // ✅ Optional postal code filter
-    let outwardCode = null;
+    // ✅ Optional postal code filter (prefix-aware, matches /therapist/filter logic)
+    let postcodeCandidates = null;
     if (req.query.postalCode) {
       const normalizedPostalCode = String(req.query.postalCode).trim().toUpperCase();
-      outwardCode = normalizedPostalCode.split(" ")[0]; // first part only
+      const outwardCode = normalizedPostalCode.split(" ")[0]; // e.g. "HA0"
+      postcodeCandidates = [outwardCode];
+
+      // area code: strip trailing letter ("W1A" -> "W1")
+      const areaCode = outwardCode.replace(/[A-Z]$/, "");
+      if (areaCode !== outwardCode && areaCode.length >= 2) {
+        postcodeCandidates.push(areaCode);
+      }
+
+      // letter-only prefix ("HA0" -> "HA")
+      const letterPrefix = outwardCode.match(/^[A-Z]+/)?.[0];
+      if (
+        letterPrefix &&
+        letterPrefix.length >= 1 &&
+        !postcodeCandidates.includes(letterPrefix)
+      ) {
+        postcodeCandidates.push(letterPrefix);
+      }
     }
 
     // ✅ Base query: only active profiles
     const profileQuery = { active: true };
-    if (outwardCode) {
-      profileQuery.servicesInPostalCodes = outwardCode; // 🔑 match postal outcode
+    if (postcodeCandidates) {
+      profileQuery.servicesInPostalCodes = { $in: postcodeCandidates };
     }
 
     // ✅ Find therapist profiles that accept new clients
